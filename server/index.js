@@ -16,7 +16,9 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', coreRoutes);
-
+app.get("/health", (req, res) => {
+  res.send("OK");
+});
 // Connect to Redis and start server
 const startServer = async () => {
     try {
