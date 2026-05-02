@@ -16,7 +16,7 @@ export const uploadPrescription = async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ message: 'No image uploaded' });
         }
-
+        console.log('Processing upload for user:', req.username);
         const imageBuffer = req.file.buffer;
         const imageHash = crypto.createHash('md5').update(imageBuffer).digest('hex');
         const cacheKey = `ocr:${imageHash}`;
@@ -29,7 +29,11 @@ export const uploadPrescription = async (req, res) => {
         }
 
         // Run OCR
-        const { data: { text } } = await Tesseract.recognize(imageBuffer, 'eng');
+        console.log('Starting Tesseract OCR...');
+        const { data: { text } } = await Tesseract.recognize(imageBuffer, 'eng', {
+            logger: m => console.log('Tesseract:', m.status, Math.round(m.progress * 100) + '%')
+        });
+        console.log('OCR completed successfully');
         
         // Cache result
         await client.set(cacheKey, text, { EX: 604800 }); // 1 week
@@ -112,7 +116,9 @@ export const savePrescription = async (req, res) => {
 export const getHistory = async (req, res) => {
     try {
         const username = req.username;
+        console.log('Fetching history for user:', username);
         const prescriptionIds = await client.lRange(`user:${username}:prescriptions`, 0, -1);
+        console.log('Found prescription IDs:', prescriptionIds.length);
 
         const history = [];
         for (const id of prescriptionIds) {
@@ -134,14 +140,21 @@ export const getHistory = async (req, res) => {
 const extractDrugs = (text) => {
     // This is a simplified regex for MVP. In reality, you'd match against a database.
     // For now, let's look for capitalized words or common patterns.
-    const commonDrugs = ['Aspirin', 'Warfarin', 'Metformin', 'Ibuprofen', 'Simvastatin', 'Clarithromycin', 'Amoxicillin', 'Lisinopril', 'Levothyroxine'];
+    const commonDrugs = [
+        'Aspirin', 'Warfarin', 'Metformin', 'Ibuprofen', 'Simvastatin', 
+        'Clarithromycin', 'Amoxicillin', 'Lisinopril', 'Levothyroxine', 
+        'Paracetamol', 'Panadol', 'Augmentin', 'Concor', 'Glucophage',
+        'Zyrtec', 'Cataflam', 'Voltaren', 'Brufen', 'Flagyl'
+    ];
     const found = [];
     
+    console.log('Extracting drugs from text length:', text.length);
     commonDrugs.forEach(drug => {
         if (text.toLowerCase().includes(drug.toLowerCase())) {
             found.push(drug);
         }
     });
+    console.log('Drugs found:', found);
 
     return [...new Set(found)];
 };

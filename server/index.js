@@ -22,6 +22,8 @@ app.get("/", (req, res) => {
 app.get("/health", (req, res) => {
   res.send("OK");
 });
+
+app.use('/api', coreRoutes);
 // Connect to Redis and start server
 const startServer = async () => {
     try {
